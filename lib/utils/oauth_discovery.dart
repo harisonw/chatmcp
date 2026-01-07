@@ -228,8 +228,10 @@ class OAuthDiscoveryService {
       final currentUrl = Uri.base;
       return '${currentUrl.origin}/oauth_callback.html';
     } else {
-      // Desktop/Mobile platform: use localhost
-      // The actual port will be determined by the OAuth handler when it starts the server
+      // Desktop/Mobile platform: placeholder for localhost redirect
+      // The actual port will be determined dynamically by the OAuth handler
+      // when it starts the local callback server. This value is not used directly
+      // but serves as a template that the handler will replace.
       return 'http://localhost:0';
     }
   }

@@ -262,8 +262,12 @@ class WebOAuthHandler {
           },
         );
         
-        // Stop the callback server and store the port for token exchange
+        // Store the port before stopping the server
         final callbackPort = _lastCallbackPort;
+        if (callbackPort == null) {
+          throw Exception('Failed to track callback server port');
+        }
+        
         await _stopCallbackServer();
         
         return {
@@ -306,8 +310,10 @@ class WebOAuthHandler {
         'redirect_uri': redirectUri, // Use the redirect_uri from the flow result
       };
 
-      // Only include client_id if it's provided and not the default fallback
+      // Only include client_id if it's provided and meaningful
       // Some OAuth servers (like Notion MCP) work with public clients (no client_id)
+      // We exclude the fallback client ID as it's used as a placeholder by some implementations
+      // and should not be sent to the OAuth server
       if (clientId != null && clientId.isNotEmpty && clientId != _fallbackClientId) {
         body['client_id'] = clientId;
       }
