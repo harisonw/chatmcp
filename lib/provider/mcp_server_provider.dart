@@ -482,6 +482,10 @@ class McpServerProvider extends ChangeNotifier {
         scope: scope,
       );
 
+      // Use the actual redirect URI from the auth result if available (desktop)
+      // or fall back to the configured redirect URI (web)
+      final actualRedirectUri = authResult['redirect_uri'] as String? ?? redirectUri;
+
       // Exchange code for token
       final tokenResult = await WebOAuthHandler.exchangeCodeForToken(
         tokenUrl: oauthConfig.tokenUrl!,
@@ -489,7 +493,7 @@ class McpServerProvider extends ChangeNotifier {
         clientSecret: null, // Public clients don't require client secret
         code: authResult['code'] as String,
         codeVerifier: authResult['code_verifier'] as String,
-        redirectUri: redirectUri,
+        redirectUri: actualRedirectUri,
       );
 
       // Update server configuration with OAuth info and tokens  
@@ -581,6 +585,9 @@ class McpServerProvider extends ChangeNotifier {
         scope: scope,
       );
 
+      // Use the actual redirect URI from the auth result if available (desktop)
+      final actualRedirectUri = authResult['redirect_uri'] as String? ?? redirectUri;
+
       // Exchange code for token
       final tokenResult = await WebOAuthHandler.exchangeCodeForToken(
         tokenUrl: oauth['token_url'] as String,
@@ -588,7 +595,7 @@ class McpServerProvider extends ChangeNotifier {
         clientSecret: oauth['client_secret'] as String?,
         code: authResult['code'] as String,
         codeVerifier: authResult['code_verifier'] as String,
-        redirectUri: oauth['redirect_uri'] as String,
+        redirectUri: actualRedirectUri,
       );
 
       // Update server config with tokens

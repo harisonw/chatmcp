@@ -14,12 +14,18 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 /// Handles OAuth authorization flows in desktop environments using external browser
 /// and local HTTP server for callback handling. Supports both public clients (no client_id)
 /// and confidential clients with PKCE (RFC 7636) for security.
+/// 
+/// Note: This implementation does not support concurrent OAuth flows. Only one
+/// OAuth flow can be active at a time.
 class WebOAuthHandler {
   static const String _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
   static final Random _rng = Random();
   static HttpServer? _callbackServer;
   static Completer<Map<String, String>>? _callbackCompleter;
   static int? _lastCallbackPort;
+  
+  /// Default fallback client ID used by some implementations
+  static const String _fallbackClientId = 'mcp-client';
 
   /// Generates a random string for PKCE code verifier
   static String _generateRandomString(int length) {
@@ -192,6 +198,11 @@ class WebOAuthHandler {
     required String scope,
     String? state,
   }) async {
+    // Ensure no other OAuth flow is in progress
+    if (_callbackServer != null) {
+      throw Exception('Another OAuth flow is already in progress. Please wait for it to complete.');
+    }
+    
     try {
       // Debug log the parameters
       Logger.root.info('OAuth Parameters:');
@@ -251,13 +262,15 @@ class WebOAuthHandler {
           },
         );
         
-        // Stop the callback server
+        // Stop the callback server and store the port for token exchange
+        final callbackPort = _lastCallbackPort;
         await _stopCallbackServer();
         
         return {
           'code': result['code']!,
           'code_verifier': codeVerifier,
           'state': result['state']!,
+          'redirect_uri': 'http://localhost:$callbackPort', // Include actual redirect URI used
         };
       } catch (e) {
         // Make sure to stop the server on error
@@ -290,20 +303,12 @@ class WebOAuthHandler {
         'grant_type': 'authorization_code',
         'code': code,
         'code_verifier': codeVerifier,
+        'redirect_uri': redirectUri, // Use the redirect_uri from the flow result
       };
-
-      // For desktop, we need to use the actual redirect_uri that was used
-      // Use the stored port from when the callback server was started
-      if (_lastCallbackPort != null) {
-        body['redirect_uri'] = 'http://localhost:$_lastCallbackPort';
-      } else {
-        // Fallback - parse from the original redirectUri parameter
-        body['redirect_uri'] = redirectUri;
-      }
 
       // Only include client_id if it's provided and not the default fallback
       // Some OAuth servers (like Notion MCP) work with public clients (no client_id)
-      if (clientId != null && clientId.isNotEmpty && clientId != 'mcp-client') {
+      if (clientId != null && clientId.isNotEmpty && clientId != _fallbackClientId) {
         body['client_id'] = clientId;
       }
 

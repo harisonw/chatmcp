@@ -95,6 +95,7 @@ class WebOAuthHandler {
           'code': code,
           'code_verifier': codeVerifier,
           'state': result['state'],
+          'redirect_uri': redirectUri, // Include redirect URI for consistency with desktop
         };
       } catch (e) {
         timer.cancel();
