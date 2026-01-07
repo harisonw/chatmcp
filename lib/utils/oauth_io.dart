@@ -1,3 +1,39 @@
+/// Desktop OAuth 2.0 Implementation for MCP Servers
+/// 
+/// This file provides OAuth 2.0 authentication support for desktop platforms
+/// (Windows, macOS, Linux) in ChatMCP. It is automatically used via conditional
+/// imports when running on non-web platforms that support dart:io.
+/// 
+/// ## OAuth Flow Overview:
+/// 1. User initiates OAuth authentication for an MCP server
+/// 2. A local HTTP server starts on localhost:8080 (or any available port)
+/// 3. System browser opens to the OAuth provider's authorization page
+/// 4. User grants permission on the OAuth provider's website
+/// 5. OAuth provider redirects back to http://localhost:<port>/oauth/callback
+/// 6. Local server receives the authorization code and validates state parameter
+/// 7. Authorization code is exchanged for access token via HTTPS
+/// 8. Browser displays success page, local server shuts down
+/// 9. Access token is stored and used for subsequent MCP requests
+/// 
+/// ## Security Features:
+/// - PKCE (Proof Key for Code Exchange) - RFC 7636
+/// - State parameter validation to prevent CSRF attacks
+/// - Localhost-only binding for callback server
+/// - Automatic cleanup of callback server after authentication
+/// - Support for both public and confidential clients
+/// 
+/// ## Platform Support:
+/// - ✅ Windows
+/// - ✅ macOS
+/// - ✅ Linux
+/// - ❌ Mobile (iOS/Android) - use oauth_stub.dart instead
+/// 
+/// ## Dependencies:
+/// - url_launcher: Opens system browser for OAuth authorization
+/// - dart:io: Runs local HTTP server for OAuth callbacks
+/// - crypto: Generates PKCE code challenges (SHA-256)
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -21,6 +57,9 @@ class WebOAuthHandler {
   static const String _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
   static final Random _rng = Random();
   static final Logger _logger = Logger('WebOAuthHandler');
+  
+  /// Default fallback client ID for public clients
+  static const String _defaultClientId = 'mcp-client';
 
   /// Check if current platform is supported (desktop only)
   static bool _isSupportedPlatform() {
@@ -155,7 +194,7 @@ class WebOAuthHandler {
       };
 
       // Only include client_id if it's provided and not the default fallback
-      if (clientId != null && clientId.isNotEmpty && clientId != 'mcp-client') {
+      if (clientId != null && clientId.isNotEmpty && clientId != _defaultClientId) {
         body['client_id'] = clientId;
       }
 
@@ -305,10 +344,10 @@ class _CallbackServer {
       if (error != null) {
         responseHtml = _buildErrorHtml(error, errorDescription);
         _completer.completeError(Exception('OAuth error: $error - ${errorDescription ?? ''}'));
-      } else if (state != _expectedState) {
-        responseHtml = _buildErrorHtml('invalid_state', 'State parameter mismatch');
+      } else if (state == null || state != _expectedState) {
+        responseHtml = _buildErrorHtml('invalid_state', 'State parameter missing or mismatch');
         _completer.completeError(Exception('Invalid state parameter'));
-      } else if (code != null && state != null) {
+      } else if (code != null) {
         responseHtml = _buildSuccessHtml();
         _completer.complete({
           'code': code,
