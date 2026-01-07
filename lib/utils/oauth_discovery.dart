@@ -223,7 +223,7 @@ class OAuthDiscoveryService {
   /// Generate appropriate redirect URI for current platform
   static String _generateRedirectUri() {
     // For web, get current page URL and construct redirect URI
-    // For desktop/mobile, use localhost (though mobile isn't supported yet)
+    // For desktop/mobile, use localhost with port 0 (any available port - will be replaced at runtime)
     try {
       final currentUrl = Uri.base;
       if (currentUrl.scheme == 'http' || currentUrl.scheme == 'https') {
@@ -235,6 +235,7 @@ class OAuthDiscoveryService {
     }
     
     // Fallback for desktop platforms
+    // Note: Port 0 means "any available port" and will be replaced with actual port during OAuth flow
     return 'http://localhost:0/callback';
   }
 
@@ -247,9 +248,9 @@ class OAuthDiscoveryService {
         'client_name': 'ChatMCP Client',
         'redirect_uris': [
           _generateRedirectUri(),
-          // For desktop platforms, also register a wildcard localhost URI pattern
-          // Some OAuth servers may accept this for local development
-          'http://localhost/callback',
+          // Note: For desktop platforms with dynamic ports, we can't pre-register the exact port.
+          // Most OAuth servers that support dynamic client registration should accept localhost
+          // URIs with any port for native applications. The actual port will be determined at runtime.
         ],
         'grant_types': ['authorization_code', 'refresh_token'],
         'response_types': ['code'],

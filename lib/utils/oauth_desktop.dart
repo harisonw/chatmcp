@@ -15,6 +15,12 @@ import 'package:url_launcher/url_launcher.dart';
 class WebOAuthHandler {
   static const String _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
   static final Random _rng = Random();
+  
+  // Default fallback client ID for public clients
+  static const String _defaultClientId = 'mcp-client';
+  
+  // OAuth flow timeout duration
+  static const Duration _oauthTimeout = Duration(minutes: 10);
 
   /// Generates a random string for PKCE code verifier
   static String _generateRandomString(int length) {
@@ -130,7 +136,7 @@ class WebOAuthHandler {
 
       // Only include client_id if it's provided and not the default fallback
       // Some OAuth servers (like Notion MCP) work with public clients (no client_id)
-      if (clientId != null && clientId.isNotEmpty && clientId != 'mcp-client') {
+      if (clientId != null && clientId.isNotEmpty && clientId != _defaultClientId) {
         body['client_id'] = clientId;
       }
 
@@ -227,10 +233,17 @@ class WebOAuthHandler {
 
   /// Starts local HTTP server for OAuth callback
   static Future<HttpServer> _startCallbackServer() async {
-    // Try to bind to a random available port
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    Logger.root.info('Callback server started on port: ${server.port}');
-    return server;
+    // Try to bind to IPv4 loopback first, fall back to IPv6 if that fails
+    try {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      Logger.root.info('Callback server started on IPv4 port: ${server.port}');
+      return server;
+    } catch (e) {
+      Logger.root.warning('Failed to bind to IPv4 loopback, trying IPv6: $e');
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv6, 0);
+      Logger.root.info('Callback server started on IPv6 port: ${server.port}');
+      return server;
+    }
   }
 
   /// Waits for OAuth callback on local HTTP server
@@ -470,11 +483,11 @@ class WebOAuthHandler {
 
     // Set timeout for the callback
     return completer.future.timeout(
-      const Duration(minutes: 10),
+      _oauthTimeout,
       onTimeout: () {
         subscription.cancel();
         server.close();
-        throw Exception('OAuth flow timed out after 10 minutes');
+        throw Exception('OAuth flow timed out after ${_oauthTimeout.inMinutes} minutes');
       },
     );
   }
