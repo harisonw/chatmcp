@@ -49,7 +49,7 @@ class _McpServerState extends State<McpServer> {
 
   // Check OAuth requirement for URL
   Future<void> _checkOAuthRequirement(String url) async {
-    if (!kIsWeb || !isValidUrl(url)) return;
+    if (kIsMobile || !isValidUrl(url)) return;
     
     setState(() {
       _isCheckingOAuth = true;
@@ -313,8 +313,8 @@ class _McpServerState extends State<McpServer> {
               ),
             ),
             if (installed) ...[
-              // OAuth authentication button (web only)
-              if (kIsWeb) ...[
+              // OAuth authentication button (web and desktop)
+              if (!kIsMobile) ...[
                 FutureBuilder<Map<String, dynamic>>(
                   future: provider.getServerOAuthStatus(serverName),
                   builder: (context, snapshot) {
@@ -797,7 +797,7 @@ class _McpServerState extends State<McpServer> {
                     const SizedBox(height: 16),
                     
                     // OAuth Auto-Discovery Information
-                    if (kIsWeb) ...[
+                    if (!kIsMobile) ...[
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -930,7 +930,7 @@ class _McpServerState extends State<McpServer> {
                   }
 
                   // Handle auto-discovered OAuth authentication BEFORE starting server
-                  if (_oauthDiscovery?.requiresOAuth == true && kIsWeb) {
+                  if (_oauthDiscovery?.requiresOAuth == true && !kIsMobile) {
                     if (mounted) {
                       // Always try automatic OAuth first
                       final shouldAuth = await showDialog<bool>(

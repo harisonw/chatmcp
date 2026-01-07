@@ -14,9 +14,16 @@ This feature adds automatic OAuth 2.0 authentication support for remote MCP serv
 ## Platform Support
 
 **✅ Web Platform**: Full OAuth support with popup-based authentication flow  
-**❌ Mobile/Desktop**: OAuth authentication is **web-only** due to browser security requirements
+**✅ Desktop Platforms (Windows, macOS, Linux)**: Full OAuth support with system browser and local callback server  
+**❌ Mobile/Android/iOS**: OAuth authentication not yet supported
 
-On non-web platforms:
+On desktop platforms:
+- OAuth discovery works (detects requirements)
+- OAuth authentication opens system browser
+- Local HTTP server handles OAuth callback
+- Same PKCE security as web version
+
+On non-supported platforms (mobile):
 - OAuth discovery still works (detects requirements)
 - OAuth authentication throws `UnsupportedError`
 - Fallback to manual configuration or other auth methods
@@ -84,7 +91,7 @@ On non-web platforms:
 
 ## Future Enhancements
 
-- Mobile/Desktop OAuth support via external browser
+- Mobile OAuth support via external browser and deep linking
 - Additional OAuth flows (device code, etc.)
 - OAuth provider-specific optimizations
 - Enhanced error handling and user feedback

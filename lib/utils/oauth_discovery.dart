@@ -222,9 +222,21 @@ class OAuthDiscoveryService {
 
   /// Generate appropriate redirect URI for current platform
   static String _generateRedirectUri() {
-    // Get current page URL and construct redirect URI
-    final currentUrl = Uri.base;
-    return '${currentUrl.origin}/oauth_callback.html';
+    // For web, get current page URL and construct redirect URI
+    // For desktop/mobile, use localhost with port 0 (any available port - will be replaced at runtime)
+    try {
+      final currentUrl = Uri.base;
+      if (currentUrl.scheme == 'http' || currentUrl.scheme == 'https') {
+        return '${currentUrl.origin}/oauth_callback.html';
+      }
+    } catch (e) {
+      // Uri.base might not work on all platforms
+      _logger.fine('Uri.base not available, using localhost');
+    }
+    
+    // Fallback for desktop platforms
+    // Note: Port 0 means "any available port" and will be replaced with actual port during OAuth flow
+    return 'http://localhost:0/callback';
   }
 
   /// Try dynamic client registration (RFC 7591)
@@ -234,7 +246,12 @@ class OAuthDiscoveryService {
       
       final clientMetadata = {
         'client_name': 'ChatMCP Client',
-        'redirect_uris': [_generateRedirectUri()],
+        'redirect_uris': [
+          _generateRedirectUri(),
+          // Note: For desktop platforms with dynamic ports, we can't pre-register the exact port.
+          // Most OAuth servers that support dynamic client registration should accept localhost
+          // URIs with any port for native applications. The actual port will be determined at runtime.
+        ],
         'grant_types': ['authorization_code', 'refresh_token'],
         'response_types': ['code'],
         'token_endpoint_auth_method': 'none', // Public client
