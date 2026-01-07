@@ -10,7 +10,7 @@ import 'package:chatmcp/utils/storage_manager.dart';
 import '../mcp/client/mcp_client_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../mcp/models/server.dart';
-import '../utils/oauth_web.dart' if (dart.library.io) '../utils/oauth_stub.dart';
+import '../utils/oauth_web.dart' if (dart.library.io) '../utils/oauth_io.dart';
 import '../utils/oauth_discovery.dart';
 
 var defaultInMemoryServers = [
@@ -437,7 +437,9 @@ class McpServerProvider extends ChangeNotifier {
   
   /// Discovers OAuth configuration for a server URL automatically
   Future<OAuthDiscoveryResult> discoverOAuthForServer(String serverUrl) async {
-    if (!kIsWeb) {
+    // OAuth discovery is now supported on both web and desktop platforms
+    if (kIsMobile) {
+      // Mobile platforms not yet supported
       return OAuthDiscoveryResult(requiresOAuth: false);
     }
     
@@ -463,7 +465,7 @@ class McpServerProvider extends ChangeNotifier {
 
   /// Automatically configures and authenticates a server with discovered OAuth
   Future<bool> autoAuthenticateServer(String serverName, OAuthDiscoveryResult oauthConfig) async {
-    if (!kIsWeb || !oauthConfig.requiresOAuth) {
+    if (kIsMobile || !oauthConfig.requiresOAuth) {
       return false;
     }
 
@@ -473,7 +475,8 @@ class McpServerProvider extends ChangeNotifier {
       // Use discovered client ID or null for public clients (like Notion MCP)
       String? clientId = oauthConfig.clientId;
       String scope = oauthConfig.scope ?? 'read write';
-      String redirectUri = oauthConfig.redirectUri ?? '${Uri.base.origin}/oauth_callback.html';
+      // For web, use the web redirect URI, for desktop it will be set by the handler
+      String redirectUri = oauthConfig.redirectUri ?? (kIsWeb ? '${Uri.base.origin}/oauth_callback.html' : 'http://localhost:0/callback');
       
       Logger.root.info('Using clientId: $clientId, scope: $scope, redirectUri: $redirectUri');
       
@@ -485,6 +488,9 @@ class McpServerProvider extends ChangeNotifier {
         scope: scope,
       );
 
+      // For desktop, use the actual redirect URI returned from the flow
+      final actualRedirectUri = authResult['redirect_uri'] as String? ?? redirectUri;
+
       // Exchange code for token
       final tokenResult = await WebOAuthHandler.exchangeCodeForToken(
         tokenUrl: oauthConfig.tokenUrl!,
@@ -492,7 +498,7 @@ class McpServerProvider extends ChangeNotifier {
         clientSecret: null, // Public clients don't require client secret
         code: authResult['code'] as String,
         codeVerifier: authResult['code_verifier'] as String,
-        redirectUri: redirectUri,
+        redirectUri: actualRedirectUri,
       );
 
       // Update server configuration with OAuth info and tokens  
@@ -502,7 +508,7 @@ class McpServerProvider extends ChangeNotifier {
         tokenUrl: oauthConfig.tokenUrl,
         clientId: clientId,
         scope: scope,
-        redirectUri: redirectUri,
+        redirectUri: actualRedirectUri,
       );
       await _saveOAuthConfigForServer(serverName, updatedConfig, tokenResult);
       
@@ -564,8 +570,8 @@ class McpServerProvider extends ChangeNotifier {
         throw Exception('OAuth not enabled for server: $serverName');
       }
 
-      if (!kIsWeb) {
-        throw Exception('OAuth is only supported on web platform');
+      if (kIsMobile) {
+        throw Exception('OAuth is not yet supported on mobile platforms');
       }
 
       // Extract OAuth parameters with debugging
@@ -588,6 +594,9 @@ class McpServerProvider extends ChangeNotifier {
         scope: scope,
       );
 
+      // For desktop, use the actual redirect URI returned from the flow
+      final actualRedirectUri = authResult['redirect_uri'] as String? ?? redirectUri;
+
       // Exchange code for token
       final tokenResult = await WebOAuthHandler.exchangeCodeForToken(
         tokenUrl: oauth['token_url'] as String,
@@ -595,7 +604,7 @@ class McpServerProvider extends ChangeNotifier {
         clientSecret: oauth['client_secret'] as String?,
         code: authResult['code'] as String,
         codeVerifier: authResult['code_verifier'] as String,
-        redirectUri: oauth['redirect_uri'] as String,
+        redirectUri: actualRedirectUri,
       );
 
       // Update server config with tokens
@@ -640,8 +649,8 @@ class McpServerProvider extends ChangeNotifier {
         throw Exception('No refresh token available for server: $serverName');
       }
 
-      if (!kIsWeb) {
-        throw Exception('OAuth is only supported on web platform');
+      if (kIsMobile) {
+        throw Exception('OAuth is not yet supported on mobile platforms');
       }
 
       // Refresh token
