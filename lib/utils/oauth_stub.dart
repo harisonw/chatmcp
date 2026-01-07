@@ -1,4 +1,6 @@
-// Stub for non-web platforms
+// Stub for mobile platforms (iOS/Android)
+// Desktop platforms (Windows/macOS/Linux) use oauth_io.dart
+// Web platform uses oauth_web.dart
 class WebOAuthHandler {
   static Future<Map<String, dynamic>> startOAuthFlow({
     required String authorizationUrl,
@@ -7,7 +9,7 @@ class WebOAuthHandler {
     required String scope,
     String? state,
   }) async {
-    throw UnsupportedError('OAuth is only supported on web platform');
+    throw UnsupportedError('OAuth is not yet supported on mobile platforms');
   }
 
   static Future<Map<String, dynamic>> exchangeCodeForToken({
@@ -18,7 +20,7 @@ class WebOAuthHandler {
     required String codeVerifier,
     required String redirectUri,
   }) async {
-    throw UnsupportedError('OAuth is only supported on web platform');
+    throw UnsupportedError('OAuth is not yet supported on mobile platforms');
   }
 
   static Future<Map<String, dynamic>> refreshToken({
@@ -27,6 +29,6 @@ class WebOAuthHandler {
     String? clientSecret,
     required String refreshToken,
   }) async {
-    throw UnsupportedError('OAuth is only supported on web platform');
+    throw UnsupportedError('OAuth is not yet supported on mobile platforms');
   }
 }
