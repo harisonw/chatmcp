@@ -9,25 +9,30 @@ This feature adds automatic OAuth 2.0 authentication support for remote MCP serv
 - **🛡️ PKCE Security**: Implements RFC 7636 (Proof Key for Code Exchange) for secure public client authentication
 - **🌐 Public Client Support**: Works with servers that don't require client_id (like Notion MCP)
 - **🔄 Token Management**: Automatic token refresh and expiry handling
-- **🚫 Extension Filtering**: Filters out browser extension interference during OAuth callbacks
+- **🚫 Extension Filtering**: Filters out browser extension interference during OAuth callbacks (web)
+- **🖥️ Desktop Support**: Full OAuth support for Windows, macOS, and Linux desktop applications
 
 ## Platform Support
 
 **✅ Web Platform**: Full OAuth support with popup-based authentication flow  
-**❌ Mobile/Desktop**: OAuth authentication is **web-only** due to browser security requirements
+**✅ Desktop Platform** (Windows, macOS, Linux): Full OAuth support with external browser and local callback server  
+**❌ Mobile**: OAuth authentication is not yet supported on mobile platforms
 
-On non-web platforms:
-- OAuth discovery still works (detects requirements)
-- OAuth authentication throws `UnsupportedError`
-- Fallback to manual configuration or other auth methods
+On desktop platforms:
+- OAuth discovery works automatically
+- OAuth authentication opens external browser for user authorization
+- Local HTTP server handles OAuth callback securely
+- Same PKCE security as web implementation
 
 ## Tested OAuth Providers
 
 - ✅ **Notion MCP** (`https://mcp.notion.com/mcp`)
-- ✅ **Atlassian MCP** (specific URL varies)
+- ✅ **Atlassian MCP** (`https://mcp.atlassian.com/v1/mcp`)
 - 🔄 **Other RFC 8414 compliant servers** (should work automatically)
 
 ## How It Works
+
+### Web Platform
 
 1. **Discovery Phase**: When you enter an MCP server URL, the system:
    - Checks `/.well-known/oauth-authorization-server` for OAuth metadata
@@ -45,8 +50,23 @@ On non-web platforms:
    - Handles token refresh when needed
    - Validates token expiry
 
+### Desktop Platform (Windows, macOS, Linux)
+
+1. **Discovery Phase**: Same as web platform
+
+2. **Authentication Phase**: 
+   - Starts local HTTP callback server on available port
+   - Opens system default browser for OAuth authorization
+   - Handles PKCE code challenge/verifier generation
+   - Receives OAuth callback via local server with state validation
+   - Exchanges authorization code for access token
+   - Automatically closes local server after completion
+
+3. **Usage Phase**: Same as web platform
+
 ## Architecture
 
+### Web Platform
 ```
 ┌─────────────────┐    ┌────────────────────┐    ┌─────────────────┐
 │   MCP Server    │    │  OAuth Discovery   │    │  OAuth Handler  │
@@ -65,6 +85,25 @@ On non-web platforms:
                        └────────────────────┘
 ```
 
+### Desktop Platform
+```
+┌─────────────────┐    ┌────────────────────┐    ┌─────────────────┐
+│   MCP Server    │    │  OAuth Discovery   │    │  OAuth Handler  │
+│                 │◄──►│                    │◄──►│                 │
+│ /.well-known/   │    │ RFC 8414 Compliant │    │ PKCE + Browser  │
+│ oauth-auth...   │    │                    │    │ Local Server    │
+└─────────────────┘    └────────────────────┘    └─────────────────┘
+                                │                         │
+                                ▼                         ▼
+                       ┌────────────────────┐    ┌─────────────────┐
+                       │   MCP Client       │    │ HTTP Server     │
+                       │                    │    │ localhost:port  │
+                       │ Bearer Token Auth  │    │ OAuth Callback  │
+                       │ StreamableClient   │    │                 │
+                       │ SSEClient          │    │                 │
+                       └────────────────────┘    └─────────────────┘
+```
+
 ## Usage
 
 1. Go to **Settings → MCP Servers**
@@ -78,13 +117,14 @@ On non-web platforms:
 
 - **PKCE Protection**: Prevents authorization code interception attacks
 - **State Parameter Validation**: Prevents CSRF attacks
-- **Origin Validation**: Ensures callbacks come from expected sources
-- **Browser Extension Filtering**: Ignores interference from development tools
+- **Origin Validation**: Ensures callbacks come from expected sources (web)
+- **Local Server Security**: Uses localhost-only binding for OAuth callbacks (desktop)
+- **Browser Extension Filtering**: Ignores interference from development tools (web)
 - **Token Expiry Handling**: Automatic refresh before expiration
 
 ## Future Enhancements
 
-- Mobile/Desktop OAuth support via external browser
+- Mobile OAuth support via external browser
 - Additional OAuth flows (device code, etc.)
 - OAuth provider-specific optimizations
 - Enhanced error handling and user feedback

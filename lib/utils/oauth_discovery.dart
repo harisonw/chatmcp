@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Result of OAuth discovery for an MCP server
 class OAuthDiscoveryResult {
@@ -222,9 +223,17 @@ class OAuthDiscoveryService {
 
   /// Generate appropriate redirect URI for current platform
   static String _generateRedirectUri() {
-    // Get current page URL and construct redirect URI
-    final currentUrl = Uri.base;
-    return '${currentUrl.origin}/oauth_callback.html';
+    if (kIsWeb) {
+      // Web platform: use the current page origin with oauth_callback.html
+      final currentUrl = Uri.base;
+      return '${currentUrl.origin}/oauth_callback.html';
+    } else {
+      // Desktop/Mobile platform: placeholder for localhost redirect
+      // The actual port will be determined dynamically by the OAuth handler
+      // when it starts the local callback server. This value is not used directly
+      // but serves as a template that the handler will replace.
+      return 'http://localhost:0';
+    }
   }
 
   /// Try dynamic client registration (RFC 7591)
@@ -238,7 +247,7 @@ class OAuthDiscoveryService {
         'grant_types': ['authorization_code', 'refresh_token'],
         'response_types': ['code'],
         'token_endpoint_auth_method': 'none', // Public client
-        'application_type': 'web',
+        'application_type': kIsWeb ? 'web' : 'native',
         'scope': 'read write',
       };
       
