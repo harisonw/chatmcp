@@ -13,10 +13,19 @@ import 'package:url_launcher/url_launcher.dart';
 /// by opening the system browser for authorization and running a local HTTP server
 /// to receive the callback. Supports both public clients (no client_id) and
 /// confidential clients with PKCE (RFC 7636) for security.
+/// 
+/// Note: This implementation is designed for desktop platforms. Mobile platforms
+/// should use a different OAuth implementation due to differences in how localhost
+/// callbacks work on mobile devices.
 class WebOAuthHandler {
   static const String _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
   static final Random _rng = Random();
   static final Logger _logger = Logger('WebOAuthHandler');
+
+  /// Check if current platform is supported (desktop only)
+  static bool _isSupportedPlatform() {
+    return Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+  }
 
   /// Generates a random string for PKCE code verifier
   static String _generateRandomString(int length) {
@@ -40,6 +49,10 @@ class WebOAuthHandler {
     required String scope,
     String? state,
   }) async {
+    if (!_isSupportedPlatform()) {
+      throw UnsupportedError('OAuth is not yet supported on mobile platforms');
+    }
+
     try {
       _logger.info('Starting desktop OAuth flow');
       _logger.info('  authorizationUrl: $authorizationUrl');
@@ -119,6 +132,10 @@ class WebOAuthHandler {
     required String codeVerifier,
     required String redirectUri,
   }) async {
+    if (!_isSupportedPlatform()) {
+      throw UnsupportedError('OAuth is not yet supported on mobile platforms');
+    }
+
     try {
       final headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -178,6 +195,10 @@ class WebOAuthHandler {
     String? clientSecret,
     required String refreshToken,
   }) async {
+    if (!_isSupportedPlatform()) {
+      throw UnsupportedError('OAuth is not yet supported on mobile platforms');
+    }
+
     try {
       final headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
