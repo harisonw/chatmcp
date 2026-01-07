@@ -19,6 +19,7 @@ class WebOAuthHandler {
   static final Random _rng = Random();
   static HttpServer? _callbackServer;
   static Completer<Map<String, String>>? _callbackCompleter;
+  static int? _lastCallbackPort;
 
   /// Generates a random string for PKCE code verifier
   static String _generateRandomString(int length) {
@@ -40,6 +41,7 @@ class WebOAuthHandler {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _callbackServer = server;
     final port = server.port;
+    _lastCallbackPort = port;
     
     Logger.root.info('OAuth callback server started on port $port');
     
@@ -291,12 +293,11 @@ class WebOAuthHandler {
       };
 
       // For desktop, we need to use the actual redirect_uri that was used
-      // Find the callback server port if it's still running
-      if (_callbackServer != null) {
-        body['redirect_uri'] = 'http://localhost:${_callbackServer!.port}';
+      // Use the stored port from when the callback server was started
+      if (_lastCallbackPort != null) {
+        body['redirect_uri'] = 'http://localhost:$_lastCallbackPort';
       } else {
-        // Server already stopped, but we need to provide the redirect_uri
-        // Parse it from the original redirectUri or use a default
+        // Fallback - parse from the original redirectUri parameter
         body['redirect_uri'] = redirectUri;
       }
 
