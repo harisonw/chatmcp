@@ -10,7 +10,7 @@ import 'package:chatmcp/utils/storage_manager.dart';
 import '../mcp/client/mcp_client_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../mcp/models/server.dart';
-import '../utils/oauth_web.dart' if (dart.library.io) '../utils/oauth_stub.dart';
+import '../utils/oauth_web.dart' if (dart.library.io) '../utils/oauth_io.dart';
 import '../utils/oauth_discovery.dart';
 
 var defaultInMemoryServers = [
@@ -435,12 +435,18 @@ class McpServerProvider extends ChangeNotifier {
 
   // OAuth-related methods
   
+  /// Gets the default redirect URI for the current platform
+  String _getDefaultRedirectUri() {
+    if (kIsWeb) {
+      return '${Uri.base.origin}/oauth_callback.html';
+    } else {
+      // For desktop platforms, use localhost with a default port
+      return 'http://localhost:8080/oauth/callback';
+    }
+  }
+  
   /// Discovers OAuth configuration for a server URL automatically
   Future<OAuthDiscoveryResult> discoverOAuthForServer(String serverUrl) async {
-    if (!kIsWeb) {
-      return OAuthDiscoveryResult(requiresOAuth: false);
-    }
-    
     try {
       Logger.root.info('Discovering OAuth for server: $serverUrl');
       final result = await OAuthDiscoveryService.discoverOAuth(serverUrl);
@@ -463,7 +469,7 @@ class McpServerProvider extends ChangeNotifier {
 
   /// Automatically configures and authenticates a server with discovered OAuth
   Future<bool> autoAuthenticateServer(String serverName, OAuthDiscoveryResult oauthConfig) async {
-    if (!kIsWeb || !oauthConfig.requiresOAuth) {
+    if (!oauthConfig.requiresOAuth) {
       return false;
     }
 
@@ -473,7 +479,7 @@ class McpServerProvider extends ChangeNotifier {
       // Use discovered client ID or null for public clients (like Notion MCP)
       String? clientId = oauthConfig.clientId;
       String scope = oauthConfig.scope ?? 'read write';
-      String redirectUri = oauthConfig.redirectUri ?? '${Uri.base.origin}/oauth_callback.html';
+      String redirectUri = oauthConfig.redirectUri ?? _getDefaultRedirectUri();
       
       Logger.root.info('Using clientId: $clientId, scope: $scope, redirectUri: $redirectUri');
       
@@ -564,10 +570,6 @@ class McpServerProvider extends ChangeNotifier {
         throw Exception('OAuth not enabled for server: $serverName');
       }
 
-      if (!kIsWeb) {
-        throw Exception('OAuth is only supported on web platform');
-      }
-
       // Extract OAuth parameters with debugging
       final authorizationUrl = oauth['authorization_url'] as String? ?? '';
       final clientId = oauth['client_id'] as String? ?? '';
@@ -638,10 +640,6 @@ class McpServerProvider extends ChangeNotifier {
       final refreshToken = oauth['refresh_token'] as String?;
       if (refreshToken == null) {
         throw Exception('No refresh token available for server: $serverName');
-      }
-
-      if (!kIsWeb) {
-        throw Exception('OAuth is only supported on web platform');
       }
 
       // Refresh token
