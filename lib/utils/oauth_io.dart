@@ -73,10 +73,15 @@ class WebOAuthHandler {
       final callbackServer = await _CallbackServer.start(port, stateParam);
       
       try {
+        // Use the actual server port in case it differs from requested port
+        final actualRedirectUri = redirectUri.replaceAll(':$port/', ':${callbackServer.actualPort}/');
+        
+        _logger.info('Using redirect URI: $actualRedirectUri');
+        
         // Build authorization URL
         final authUri = Uri.parse(authorizationUrl).replace(queryParameters: {
           'response_type': 'code',
-          'redirect_uri': redirectUri,
+          'redirect_uri': actualRedirectUri,
           'scope': scope,
           'state': stateParam,
           'code_challenge': codeChallenge,
@@ -260,6 +265,9 @@ class _CallbackServer {
     _server.listen(_handleRequest);
   }
 
+  /// Gets the actual port the server is listening on
+  int get actualPort => _server.port;
+
   /// Starts a local HTTP server on the specified port
   static Future<_CallbackServer> start(int port, String expectedState) async {
     try {
@@ -300,15 +308,15 @@ class _CallbackServer {
       } else if (state != _expectedState) {
         responseHtml = _buildErrorHtml('invalid_state', 'State parameter mismatch');
         _completer.completeError(Exception('Invalid state parameter'));
-      } else if (code != null) {
+      } else if (code != null && state != null) {
         responseHtml = _buildSuccessHtml();
         _completer.complete({
           'code': code,
           'state': state,
         });
       } else {
-        responseHtml = _buildErrorHtml('invalid_request', 'No authorization code received');
-        _completer.completeError(Exception('No authorization code received'));
+        responseHtml = _buildErrorHtml('invalid_request', 'No authorization code or state received');
+        _completer.completeError(Exception('No authorization code or state received'));
       }
 
       // Send response
